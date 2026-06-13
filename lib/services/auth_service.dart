@@ -1,100 +1,189 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+
 class AuthService {
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  // Get current user
-  User? get currentUser => _auth.currentUser;
 
-  // Auth state changes stream
-  Stream<User?> get authStateChanges => _auth.authStateChanges();
+  // Connecting with Firebase Authentication
 
-  // Sign up with email and password
-  Future<UserCredential?> signUp({
-    required String email,
-    required String password,
-    required String userType, // 'type1' or 'type2'
-    String? name,
-  }) async {
+  final FirebaseAuth _auth =
+      FirebaseAuth.instance;
+
+
+  // Connecting with Firestore Database
+
+  final FirebaseFirestore _firestore =
+      FirebaseFirestore.instance;
+
+
+
+  // ===========================
+  // REGISTER USER
+  // ===========================
+
+
+  Future<User?> register(
+      String email,
+      String password,
+      String role
+      ) async {
+
+
     try {
-      // Create user
-      UserCredential userCredential = await _auth
-          .createUserWithEmailAndPassword(email: email, password: password);
 
-      // Save user data to Firestore
-      await _firestore.collection('users').doc(userCredential.user!.uid).set({
-        'email': email,
-        'name': name ?? '',
-        'userType': userType,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
 
-      return userCredential;
-    } on FirebaseAuthException catch (e) {
-      throw _handleAuthException(e);
-    }
-  }
+      // Create account in Firebase Authentication
 
-  // Sign in with email and password
-  Future<UserCredential?> signIn({
-    required String email,
-    required String password,
-  }) async {
-    try {
-      UserCredential userCredential = await _auth.signInWithEmailAndPassword(
+      UserCredential result =
+      await _auth.createUserWithEmailAndPassword(
+
         email: email,
+
         password: password,
+
       );
-      return userCredential;
-    } on FirebaseAuthException catch (e) {
-      throw _handleAuthException(e);
+
+
+
+      // Getting the newly created user's information
+
+      User? user = result.user;
+
+
+
+      // Saving extra information in Firestore
+
+      await _firestore
+          .collection("users")
+          .doc(user!.uid)
+          .set({
+
+            "email": email,
+
+            "role": role,
+
+            "createdAt":
+            DateTime.now()
+
+
+          });
+
+
+
+      return user;
+
+
+
     }
+
+
+    catch(e){
+
+      print(e);
+
+      return null;
+
+    }
+
   }
 
-  // Sign out
-  Future<void> signOut() async {
+
+
+
+
+  // ===========================
+  // LOGIN USER
+  // ===========================
+
+
+  Future<User?> login(
+      String email,
+      String password
+      ) async {
+
+
+    try{
+
+
+      UserCredential result =
+
+      await _auth.signInWithEmailAndPassword(
+
+          email: email,
+
+          password: password
+
+      );
+
+
+
+      return result.user;
+
+
+    }
+
+
+    catch(e){
+
+
+      print(e);
+
+
+      return null;
+
+
+    }
+
+
+  }
+
+
+
+
+
+  // ===========================
+  // LOGOUT USER
+  // ===========================
+
+
+  Future<void> logout() async{
+
+
     await _auth.signOut();
+
+
   }
 
-  // Get user type
-  Future<String?> getUserType() async {
-    if (currentUser == null) return null;
 
-    try {
-      DocumentSnapshot doc = await _firestore
-          .collection('users')
-          .doc(currentUser!.uid)
-          .get();
 
-      if (doc.exists) {
-        final data = doc.data() as Map<String, dynamic>?;
-        return data?['userType'] as String?;
-      }
-      return null;
-    } catch (e) {
-      return null;
-    }
+
+
+  // ===========================
+  // GET USER ROLE
+  // ===========================
+
+
+  Future<String?> getUserRole(String uid) async{
+
+
+    DocumentSnapshot userData =
+
+    await _firestore
+
+        .collection("users")
+
+        .doc(uid)
+
+        .get();
+
+
+
+    return userData["role"];
+
+
   }
 
-  // Handle Firebase Auth exceptions
-  String _handleAuthException(FirebaseAuthException e) {
-    switch (e.code) {
-      case 'weak-password':
-        return 'The password provided is too weak.';
-      case 'email-already-in-use':
-        return 'An account already exists for that email.';
-      case 'user-not-found':
-        return 'No user found for that email.';
-      case 'wrong-password':
-        return 'Wrong password provided.';
-      case 'invalid-email':
-        return 'The email address is not valid.';
-      case 'user-disabled':
-        return 'This user account has been disabled.';
-      default:
-        return 'An error occurred. Please try again.';
-    }
-  }
+
+
 }
